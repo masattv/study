@@ -1,4 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:memoapp/model/memo.dart';
+import 'package:memoapp/pages/add_memo_page.dart';
+import 'package:memoapp/pages/memo_detail_page.dart';
 
 class TopPage extends StatefulWidget {
   const TopPage({super.key, required this.title});
@@ -10,13 +14,7 @@ class TopPage extends StatefulWidget {
 }
 
 class _TopPageState extends State<TopPage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
+  final memoCollection = FirebaseFirestore.instance.collection("memo");
 
   @override
   Widget build(BuildContext context) {
@@ -26,22 +24,44 @@ class _TopPageState extends State<TopPage> {
         // title: Text(widget.title),
         title: const Text("Flutter × Firebase"),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
+      body: StreamBuilder<QuerySnapshot>(
+          stream: memoCollection.snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const CircularProgressIndicator();
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: Text("データがありません"));
+            }
+            final docs = snapshot.data!.docs;
+            return ListView.builder(
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  Map<String, dynamic> data =
+                      docs[index].data() as Map<String, dynamic>;
+
+                  final Memo fetchMemo = Memo(
+                      title: data["title"],
+                      detail: data["detail"],
+                      createdDate: data["createdDate"],
+                      updatedDate: data["updatedDate"]);
+                  return ListTile(
+                    title: Text(fetchMemo.title),
+                    onTap: () {
+                      //確認画面に遷移する記述を書く
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => MemoDetailPage(fetchMemo)));
+                    },
+                  );
+                });
+          }),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
+        onPressed: () {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const AddMemoPage()));
+        },
         tooltip: 'Increment',
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
